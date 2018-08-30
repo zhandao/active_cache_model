@@ -9,7 +9,7 @@ module ActiveCacheModel
 
       run_callbacks :initialize do
         run_callbacks :create do
-          super(@default_attrs.merge(attrs))
+          super(@default_attrs.merge(created_at: Time.current, **attrs))
         end
       end
     end

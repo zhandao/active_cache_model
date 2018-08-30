@@ -5,7 +5,7 @@ module ActiveCacheModel
     def set_default_attrs
       @default_attrs = schema.map do |attr_name, attr_schema|
         { attr_name => default_val(attr_schema[:default_val]) }
-      end.reduce({ created_at: Time.current }, :merge)
+      end.reduce({ }, :merge)
     end
 
     def attr_processing
