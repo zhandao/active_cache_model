@@ -32,7 +32,7 @@ module ActiveCacheModel
       result = fetch!("#{name.underscore}/#{key}")
       result = MultiJson.load(result).symbolize_keys.map do |attr, value|
         value = type_convert(attr, value)
-        value = schema[attr][:enum][value] if schema[attr][:enum].present?
+        value = schema[attr][:enum][value] if schema[attr][:enum].present? && value.present?
 
         [attr, value]
       end.to_h

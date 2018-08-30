@@ -1,8 +1,6 @@
 # ActiveCacheModel
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/active_cache_model`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Simple encapsulation for using Rails.cache like ActiveRecord.
 
 ## Installation
 
@@ -22,7 +20,20 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+class Foo < ActiveCacheModel::Base
+  config.handler = Rails.cache   # is default setting
+  config.auto_destroy_in = 1.day # 1 day after **updated_at**
+  config.enable_query = false    # `query` is UNUSED yet
+  primary_key :uuid, String, defaults_to: -> { SecureRandom.uuid }
+  # or `primary_key :id`, it will increase itself.
+
+  date_time :time
+    integer :status, enum: %i[ done error ], defaults_to: 0
+     string :bar, presence: true, inclusion: %w[ aa bb ]
+    boolean :bool
+end
+```
 
 ## Development
 

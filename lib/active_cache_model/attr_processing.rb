@@ -12,7 +12,7 @@ module ActiveCacheModel
       proc do |attr_name, attr_val|
         s = schema[attr_name]
         attr_val = default_val(s[:default_val]) if attr_val.nil? && !s[:default_val].nil?
-        attr_val = enum(s[:enum], attr_val) if s[:enum]
+        attr_val = enum(s[:enum], attr_val) if s[:enum] && attr_val.present?
         [attr_name, attr_val]
       end
     end
