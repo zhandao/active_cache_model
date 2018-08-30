@@ -35,6 +35,17 @@ class Foo < ActiveCacheModel::Base
 end
 ```
 
+```ruby
+class ReorgCacheIndices < ApplicationJob
+  queue_as :default
+
+  def perform(*args)
+    YourModel.reorganize_indices
+    ReorgCacheIndices.set(wait: YourModel.config.auto_destroy_in).perform_later
+  end
+end
+```
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.

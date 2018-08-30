@@ -5,33 +5,52 @@ module ActiveCacheModel
     def self.included(kclass)
       kclass.class_eval do
         class << self
-          def store(name, value, options = { })
-            config.handler.write(name, value,
-                                 { expires_in: config.auto_destroy_in }.merge(options))
+          def store(key, value, options = { })
+            key = "#{self.name.underscore}/#{key}"
+            config.handler.write(key, value, {
+                expires_in: config.auto_destroy_in,
+                race_condition_ttl: 5.seconds
+            }.merge(options))
           end
 
-          def fetch(*args)
-            config.handler.read(*args)
+          def push(value, to:, process: :itself, **options)
+            arr = (fetch(to) || [ ]) << value
+            store(to, arr.send(process), options)
+            arr
           end
 
-          def fetch!(*args)
-            fetch(*args) or raise Error, "cannot fetch #{args.first}"
+          def arr_remove(value, from:, **options)
+            arr = fetch(from) || [ ]
+            arr.delete(value)
+            store(from, arr, options)
+            arr
           end
 
-          def read_multi(*names)
-            config.handler.read_multi(*names)
+          def fetch(key, *args)
+            key = "#{self.name.underscore}/#{key}"
+            config.handler.read(key, *args)
           end
 
-          def store_keys
-            return [ ] unless config.enable_query
-            fetch("#{name.underscore}/store_keys") | [ ]
+          def fetch!(key, *args)
+            fetch(key, *args) or raise Error, "cannot fetch #{args.first}"
           end
 
-          # TODO
-          def store_keys_add(key)
-            return false unless config.enable_query
-            keys = fetch("#{name.underscore}/store_keys") || [ ] << key
-            store("#{name.underscore}/store_keys", keys)
+          def pull(*keys)
+            config.handler.read_multi(*(keys.map { |key| "#{self.name.underscore}/#{key}" })) || { }
+          end
+
+          def delete(key)
+            key = "#{self.name.underscore}/#{key}"
+            config.handler.delete(key)
+          end
+
+          def load_hash(hash)
+            hash.symbolize_keys.map do |attr, value|
+              value = type_convert(attr, value)
+              value = schema[attr][:enum][value] if schema[attr][:enum].present? && value.present?
+
+              [attr, value]
+            end.to_h
           end
 
           private
@@ -49,17 +68,28 @@ module ActiveCacheModel
           end
         end # end of class methods
 
-
-        def cls_name
-          self.class.name.underscore
-        end
-
         private
 
         def fetch_id_and_inc
-          id = (fetch("#{cls_name}/next_id") || 1).to_i
-          store("#{cls_name}/next_id", id + 1)
+          id = (fetch('next_id') || 1).to_i
+          store('next_id', id + 1)
           id
+        end
+
+        def index_store
+          return unless indices.present? && config.enable_query
+          indices.each do |index_name|
+            # e.g. { 'ns/indices/email/x@skippingcat.com' => [123, 234, 345] }
+            push(primary_value, to: "indices/#{index_name}/#{send(index_name)}", expires_in: nil)
+            push(send(index_name), to: "indices/#{index_name}", process: :uniq, expires_in: nil)
+          end
+        end
+
+        def index_remove
+          return unless indices.present? && config.enable_query
+          indices.each do |index_name|
+            arr_remove(primary_value, from: "indices/#{index_name}/#{send(index_name)}", expires_in: nil)
+          end
         end
       end
     end

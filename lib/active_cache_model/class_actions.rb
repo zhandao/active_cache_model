@@ -1,4 +1,4 @@
-require 'multi_json'
+require 'active_cache_model/error'
 
 module ActiveCacheModel
   module ClassActions
@@ -16,7 +16,7 @@ module ActiveCacheModel
 
     def primary_key name = :id, *args
       if name == :id
-        store("#{cls_name}/next_id", 1)
+        store('next_id', 1)
         integer :id, defaults_to: -> { fetch_id_and_inc }
       else
         config.primary_key = name
@@ -24,28 +24,35 @@ module ActiveCacheModel
       end
     end
 
+    def index(name)
+      return unless name.in?(schema.keys)
+      indices << name
+    end
+
     def create(attrs)
-      new(attrs).tap { |obj| obj.save }
+      new(attrs).tap { |obj| obj.run_callbacks(:create) { obj.save } }
     end
 
     def find(key)
-      result = fetch!("#{name.underscore}/#{key}")
-      result = MultiJson.load(result).symbolize_keys.map do |attr, value|
-        value = type_convert(attr, value)
-        value = schema[attr][:enum][value] if schema[attr][:enum].present? && value.present?
-
-        [attr, value]
-      end.to_h
-
-      new(result)
+      new(load_hash(fetch!(key)))
     end
 
     def find_by(condition)
-      # TODO
+      where(condition).last
     end
 
     def where(condition)
-      # TODO
+      raise Error, 'Unable to query!' unless indices.present? && config.enable_query
+
+      main_cond = condition.keys.first
+      raise Error, "`#{main_cond}` has not been indexed!" unless indices.include?(main_cond)
+      return [ ] unless (index = fetch("indices/#{main_cond}/#{condition[main_cond]}")).is_a?(Array)
+      records = pull(*index).values.map { |obj| new(load_hash(obj)) }
+
+      condition.except(main_cond).each do |key, val|
+        records.delete_if { |record| record.send(key) != val }
+      end
+      records
     end
   end
 end

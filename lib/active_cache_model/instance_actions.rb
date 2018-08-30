@@ -1,30 +1,26 @@
 require 'active_cache_model/attr_processing'
+require 'active_cache_model/error'
 
 module ActiveCacheModel
   module InstanceActions
     include AttrProcessing
 
     def initialize(attrs)
-      raise StandardError, 'Please set `primary_key`' unless defined?(config.primary_key)
+      raise Error, 'Please set `primary_key`' unless defined?(config.primary_key)
 
-      run_callbacks :initialize do
-        run_callbacks :create do
-          super(@default_attrs.merge(created_at: Time.current, **attrs))
-        end
+      run_callbacks :init do
+        super(@default_attrs.merge(created_at: Time.current, **attrs))
       end
     end
 
-    def cache_key
-      return @cache_key if @cache_key
-
-      key = send(config.primary_key)
-      @cache_key = "#{cls_name}/#{key}"
+    def primary_value
+      send(config.primary_key)
     end
 
     def save
       run_callbacks :save do
         self.valid?
-        store(cache_key, self.as_json.map(&attr_processing).to_h.to_json)
+        store(primary_value, self.as_json.map(&attr_processing).to_h)
       end
     end
 
@@ -38,7 +34,7 @@ module ActiveCacheModel
 
     def destroy
       run_callbacks :destroy do
-        config.handler.delete(cache_key)
+        delete(primary_value)
       end
     end
 
@@ -47,7 +43,7 @@ module ActiveCacheModel
     end
 
     def inspect
-      [self.class.name, ' ', self.as_json.to_s, ' is cached by key: ', cache_key].join
+      [self.class.name, ' ', self.as_json.to_s, ' is cached by key: ', "#{self.class.name.underscore}/#{primary_value}"].join
     end
 
     def to_s; self.as_json.to_s end
