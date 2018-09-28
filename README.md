@@ -2,6 +2,8 @@
 
 Simple encapsulation for using Rails.cache like ActiveRecord.
 
+author: will.huang
+
 ## Installation
 
 Add this line to your application's Gemfile:
