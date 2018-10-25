@@ -57,11 +57,11 @@ module ActiveCacheModel
 
           def type_convert(attr_name, attr_val)
             case schema[attr_name][:type]
-              when 'date_time'; attr_val.to_datetime
-              when 'date';      attr_val.to_date
-              when 'time';      attr_val.to_time
-              when 'integer';   attr_val.to_i
-              when 'float';     attr_val.to_f
+              when 'date_time'; attr_val&.to_datetime
+              when 'date';      attr_val&.to_date
+              when 'time';      attr_val&.to_time
+              when 'integer';   attr_val&.to_i
+              when 'float';     attr_val&.to_f
               when 'boolean';   attr_val.in?([true, 1, 'true']) ? true : false
               else attr_val
             end
